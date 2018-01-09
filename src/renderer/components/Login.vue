@@ -7,6 +7,15 @@
                     <div class="input-row">
                         <label class="label fadeIn">Username</label>
                         <label for="userId"></label><input id="userId" type="text" data-fyll="pineapple" class="input fadeIn delay1" v-model="userId" placeholder="请输入您的用户id"/>
+                        <el-dropdown id="selectUser" v-show="selectUsers.length !==0" @command="handleCommand">
+                              <span class="el-dropdown-link">
+                                <i class="el-icon-arrow-down el-icon--right"></i>
+                              </span>
+                            <el-dropdown-menu slot="dropdown">
+                                <el-dropdown-item v-for="item in selectUsers" :key="item.userId" :command="item">{{item.userId}}</el-dropdown-item>
+                            </el-dropdown-menu>
+                        </el-dropdown>
+
                     </div>
                     <div class="input-row">
                         <label class="label fadeIn delay2">Password</label>
@@ -30,11 +39,9 @@
                 </div>
             </div>
             <div class="page page-back">
-
-                <div class="page-content"><img src="" class="avatar"/>
-                    <p class="welcome">Welcome back, Dog!</p>
+                <div class="page-content"><img id="elephant" src="" class="avatar"/>
+                    <p class="welcome">Welcome back, {{userId}}!</p>
                     <div class="perspective">
-                        <button class="button inline trigger-anim-replay"><i class="ion-refresh"></i>Replay animation</button>
                     </div>
                 </div>
             </div>
@@ -45,6 +52,7 @@
 <script>
     import { mapGetters } from 'vuex'
     import dbTools from '../api/indexedDbTools'
+    import {stateMixin as user} from "vue";
     export default {
         props: [],//这个中保存父组件传递过来的数据
         data() {//保存该模板下的所有数据
@@ -54,20 +62,22 @@
                 userId:'',//绑定用户id输入框
                 password:'',//绑定密码输入框
                 remember:true,//是否记住账号密码
-                storeName:'userInfo'//表名称
+                storeName:'userInfo',//表名称
+                selectUsers:[],
+                img:''
             }
         },
 
         methods: {//这个模板中的所有方法都写到这
-            login(){
+            login: function () {
                 //检测到未输入账号
-                if(!this.userId ){
+                if (!this.userId) {
                     this.$message.error('请输入账号！！！');
                     document.getElementById('userId').focus();
                     return
                 }
                 //检测到未输入密码
-                if(!this.password ){
+                if (!this.password) {
                     this.$message.error('请输入密码！！！');
                     document.getElementById('password').focus();
                     return
@@ -75,28 +85,42 @@
                 //登录状态改为正在登录
                 this.logining = true;
                 //读取用户信息 没有的话就保存用户信息
-                let user = dbTools.getDataByKey(this.storeName,this.userId);
-                user.onsuccess = this.rememberMe;
-
+                dbTools.openNewDb('User').then(db => {
+                    dbTools.getDataByKey(db, 'userInfo', this.userId).then(user => {
+                        if (!user) {
+                            if (this.remember) {
+                                dbTools.updateData(db,'userInfo', {
+                                    userId: this.userId,
+                                    password: this.password,
+                                    remember: true
+                                })
+                            } else {
+                                dbTools.updateData(db, 'userInfo', {
+                                    userId: this.userId,
+                                    password: this.password,
+                                    remember: false
+                                })
+                            }
+                        } else {
+                            if (this.remember) {
+                                dbTools.updateData(db, 'userInfo', {
+                                    userId: this.userId,
+                                    password: this.password,
+                                    remember: true
+                                })
+                            } else {
+                                dbTools.updateData(db, 'userInfo', {
+                                    userId: this.userId,
+                                    password: this.password,
+                                    remember: false
+                                })
+                            }
+                        }
+                    });
+                });
 //                //发送登录请求
-//                this.$store.dispatch('login',{userId:this.userId,password:this.password})
-//                    .then(this.loginBack)
-            },
-            rememberMe(e){//是否保存用户信息
-                let user = e.target.result;
-                if(!user){
-                    if(this.remember){
-                        dbTools.insertData(this.storeName,[{userId:this.userId,password:this.password,remember:true}])
-                    }else{
-                        dbTools.insertData(this.storeName,[{userId:this.userId,password:this.password,remember:false}])
-                    }
-                }else{
-                    if(this.remember){
-                        dbTools.updateDataByKey(this.storeName,{userId:this.userId,password:this.password,remember:true})
-                    }else{
-                        dbTools.updateDataByKey(this.storeName,{userId:this.userId,password:this.password,remember:false})
-                    }
-                }
+                this.$store.dispatch('login', {userId: this.userId, password: this.password})
+                    .then(this.loginBack)
             },
             loginBack(response){
                 this.logining = false;
@@ -104,10 +128,18 @@
                     this.$message.error(response.msg);
                 }else{
                     this.flip = true;
-                    setTimeout(()=>{
-                        this.$router.push("/homePage/shortcut")
-                    },1000)
+//                    setTimeout(()=>{
+//                        this.$router.push("/homePage/shortcut")
+//                    },1000)
                 }
+            },
+            addUsersToSelect(e){
+                let users = e.target.result;
+
+            },
+            handleCommand(command){
+                this.userId = command.userId;
+                this.password = command.password
             }
 
         },
@@ -116,18 +148,39 @@
             }),
         },
         mounted() {//页面加载完成后执行这里面的代码
-            //打开IndexedDb数据库 参数：{name:打开的仓库,keyPath:指定仓库的索引名称}
-            dbTools.openDb({name:this.storeName,keyPath:'userId'});
-            //因为打开数据库是异步操作，所以设置一个间隔再插入数据
-            setTimeout(()=>{
+            dbTools.openNewDb('User').then(e=>{
+                if(!e.objectStoreNames.contains('userInfo')){
+                    e.close();
+                    dbTools.openDb('User',2,{name:'userInfo',keyPath:'userId'}).then(e=>{
+                        e.close()
+                    })
 
+                }
+            });//初始化userInfo表
+            dbTools.openNewDb('User').then(e=>{
+                if(!e.objectStoreNames.contains('img')){
+                    e.close();
+                    dbTools.openDb('User',3,{name:'img',keyPath:'id'}).then(e=>{
+                        e.close()
+                    })
 
-            },500)
-
-
-        },
-        destroyed :()=> {
-            dbTools.closeDB()
+                }
+            });//初始化img头像表
+            dbTools.openNewDb('User').then(e=>{
+                dbTools.getAllData(e,'userInfo').then(users =>{
+                    if(users){
+                        users.forEach((t,i) => {
+                            if(t.remember){
+                                this.selectUsers.push(t)
+                            }
+                            if(i===0){
+                                this.userId = t.userId;
+                                this.password = t.password;
+                            }
+                        })
+                    }
+                })
+            });//查找表中记住了哪些用户信息展示到页面
         },
         components: {//引入自定义组件，请把引入组件放到这，然后再template中引入
 
@@ -138,7 +191,12 @@
 </script>
 
 <style >
-
+    #selectUser{
+        cursor: pointer;
+        position: absolute;
+        top:95px;
+        left: 360px;
+    }
 
     html,body,div,span,applet,object,iframe,h1,h2,h3,h4,h5,h6,p,blockquote,pre,a,abbr,acronym,address,big,cite,code,del,dfn,em,img,ins,kbd,q,s,samp,small,strike,strong,sub,sup,tt,var,b,u,i,center,dl,dt,dd,ol,ul,li,fieldset,form,label,legend,table,caption,tbody,tfoot,thead,tr,th,td,article,aside,canvas,details,embed,figure,figcaption,footer,header,hgroup,menu,nav,output,ruby,section,summary,time,mark,audio,video{margin:0;padding:0;border:0;font-size:100%;font:inherit;vertical-align:baseline}article,aside,details,figcaption,figure,footer,header,hgroup,menu,nav,section{display:block}body{line-height:1}ol,ul{list-style:none}blockquote,q{quotes:none}blockquote:before,blockquote:after,q:before,q:after{content:'';content:none}table{border-collapse:collapse;border-spacing:0}
     html, body {

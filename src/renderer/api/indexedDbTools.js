@@ -1,40 +1,56 @@
-import * as configs from './config'
-let dbInfo = null;
 export default {
-    openDb:(storeName)=> {
-        /** @namespace window.indexedDB */
-        let request = window.indexedDB.open(configs.INDEXEDDB_NAME, configs.INDEXEDDB_VERSION);
-        request.onerror = event =>console.log("打开IndexedDB失败", event);
-        request.onupgradeneeded = (event) => {
-            dbInfo = {dbName:configs.INDEXEDDB_NAME,dbVersion:configs.INDEXEDDB_VERSION,db:event.target.result};
-
-            if(!dbInfo.db.objectStoreNames.contains(storeName.name)){
-
-                dbInfo.db.createObjectStore(storeName.name, { keyPath: storeName.keyPath});
+    openNewDb:(dbName)=>{
+        return new Promise((resolve, reject) => {
+            let request = window.indexedDB.open(dbName);
+            request.onerror = event => reject('打开IndexedDB失败')
+            request.onsuccess = event => {
+                console.log("数据库初始化成功");
+                resolve(event.target.result)
             }
-            console.log("数据库初始化成功==");
-        };
-        request.onsuccess= event =>{
-            dbInfo = {dbName:configs.INDEXEDDB_NAME,dbVersion:configs.INDEXEDDB_VERSION,db:event.target.result}
-            console.log("数据库初始化成功");
-        }
+        })
     },
-    closeDB:()=>{
-        dbInfo.db.close();
-    },
-    insertData:(storeName,dataList)=>{
-        //创建事务并访问事务中的objectStore;
-        let store =dbInfo.db.transaction(storeName, 'readwrite').objectStore(storeName);
-        dataList.forEach(t=>store.add(t))
-    },
-    getAllData:storeName =>{
-        let data =dbInfo.db.transaction(storeName, 'readwrite').objectStore(storeName).getAll();
-        data.onsuccess = e => data = e.target.result;
-        return data
-    },
-    getDataByKey:(storeName,key) => dbInfo.db.transaction(storeName, 'readwrite').objectStore(storeName).get(key),
-    deleteDataByKey:(storeName,key)=>dbInfo.db.transaction(storeName, "readwrite").objectStore(storeName).delete(key),
+    openDb:(dbname,version,storeName)=> {
+        /** @namespace window.indexedDB */
+        return new Promise((resolve, reject) => {
+            let request = window.indexedDB.open(dbname, version);
+            request.onerror = event =>reject('打开IndexedDB失败')
+            request.onupgradeneeded = (event) => {
+                let db = event.target.result;
+                if(!db.objectStoreNames.contains(storeName.name)){
+                    db.createObjectStore(storeName.name, { keyPath: storeName.keyPath});
+                }
+                resolve(db)
+            };
+            request.onsuccess= event =>{
+                console.log("数据库初始化成功");
+                resolve(event.target.result)
+            }
+        })
 
-    updateDataByKey:(storeName,data) =>dbInfo.db.transaction(storeName, "readwrite").objectStore(storeName).put(data),
+    },
+    updateData:(db,storeName,data)=>{
+        let store = db.transaction(storeName, 'readwrite').objectStore(storeName);
+        console.log(data)
+        store.put(data)
+    },
+    getAllData:(db,storeName) =>{
+        return new Promise((resolve, reject) => {
+            let data = db.transaction(storeName, 'readwrite').objectStore(storeName).getAll();
+            data.onsuccess = e => resolve(e.target.result);
+            data.onerror = e => reject("读取数据失败")
+        })
+    },
+    getDataByKey:(db,storeName,key) => {
+        return new Promise((resolve, reject) => {
+            let data = db.transaction(storeName, 'readwrite').objectStore(storeName).get(key);
+            data.onsuccess = e => resolve(e.target.result);
+            data.onerror = e => reject("读取数据失败")
+        })
 
+    },
+    deleteDataByKey:(db,storeName,key)=>{
+        let data =  db.transaction(storeName, "readwrite").objectStore(storeName).delete(key);
+        data.onsuccess = e => resolve('删除数据成功');
+        data.onerror = e => reject("删除数据失败")
+    },
 }
