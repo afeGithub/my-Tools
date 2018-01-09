@@ -3,14 +3,21 @@
         <div id="window" :class="[flip?'flip':'']" >
             <div class="page page-front">
                 <div class="page-content">
+
                     <div class="input-row">
                         <label class="label fadeIn">Username</label>
-                        <label for="username"></label><input id="username" type="text" data-fyll="pineapple" class="input fadeIn delay1" v-model="username"/>
+                        <label for="userId"></label><input id="userId" type="text" data-fyll="pineapple" class="input fadeIn delay1" v-model="userId" placeholder="请输入您的用户id"/>
                     </div>
                     <div class="input-row">
                         <label class="label fadeIn delay2">Password</label>
-                        <label for="password"></label><input id="password" type="password" data-fyll="hackmeplease" class="input fadeIn delay3" v-model="password"/>
+                        <label for="password"></label><input id="password" type="password" data-fyll="hackmeplease" class="input fadeIn delay3" v-model="password" placeholder="请输入您的密码"/>
                     </div>
+
+                    <div class="input-row">
+                        <el-checkbox  class=" fadeIn delay3" v-model="remember" >remember me</el-checkbox>
+
+                    </div>
+
                     <div class="input-row perspective">
                         <button id="submit" class="button load-btn fadeIn delay4" :class="[logining?'loading':'']" @click="login"><span class="default"><i class="ion-arrow-right-b"></i>Login</span>
                             <div class="load-state">
@@ -23,6 +30,7 @@
                 </div>
             </div>
             <div class="page page-back">
+
                 <div class="page-content"><img src="" class="avatar"/>
                     <p class="welcome">Welcome back, Dog!</p>
                     <div class="perspective">
@@ -36,71 +44,101 @@
 
 <script>
     import { mapGetters } from 'vuex'
+    import dbTools from '../api/indexedDbTools'
     export default {
         props: [],//这个中保存父组件传递过来的数据
         data() {//保存该模板下的所有数据
             return {
-                logining:false,
-                flip:false,
-                username:'',
-                password:'',
+                logining:false,//登录状态
+                flip:false,//登录成功后的动画
+                userId:'',//绑定用户id输入框
+                password:'',//绑定密码输入框
+                remember:true,//是否记住账号密码
+                storeName:'userInfo'//表名称
             }
         },
 
         methods: {//这个模板中的所有方法都写到这
             login(){
-                console.log(this.username)
-                console.log(this.password)
-//                this.logining = true;
-//                setTimeout(()=>{
-//                    this.logining = false;
-//                    this.flip = true;
-//                    setTimeout(()=>{
-//                        this.$router.push("/homePage/shortcut")
-//                    },1500)
-//                },1500)
+                //检测到未输入账号
+                if(!this.userId ){
+                    this.$message.error('请输入账号！！！');
+                    document.getElementById('userId').focus();
+                    return
+                }
+                //检测到未输入密码
+                if(!this.password ){
+                    this.$message.error('请输入密码！！！');
+                    document.getElementById('password').focus();
+                    return
+                }
+                //登录状态改为正在登录
+                this.logining = true;
+                //读取用户信息 没有的话就保存用户信息
+                let user = dbTools.getDataByKey(this.storeName,this.userId);
+                user.onsuccess = this.rememberMe;
+
+//                //发送登录请求
+//                this.$store.dispatch('login',{userId:this.userId,password:this.password})
+//                    .then(this.loginBack)
             },
+            rememberMe(e){//是否保存用户信息
+                let user = e.target.result;
+                if(!user){
+                    if(this.remember){
+                        dbTools.insertData(this.storeName,[{userId:this.userId,password:this.password,remember:true}])
+                    }else{
+                        dbTools.insertData(this.storeName,[{userId:this.userId,password:this.password,remember:false}])
+                    }
+                }else{
+                    if(this.remember){
+                        dbTools.updateDataByKey(this.storeName,{userId:this.userId,password:this.password,remember:true})
+                    }else{
+                        dbTools.updateDataByKey(this.storeName,{userId:this.userId,password:this.password,remember:false})
+                    }
+                }
+            },
+            loginBack(response){
+                this.logining = false;
+                if(response.state ==='error'){
+                    this.$message.error(response.msg);
+                }else{
+                    this.flip = true;
+                    setTimeout(()=>{
+                        this.$router.push("/homePage/shortcut")
+                    },1000)
+                }
+            }
 
         },
         computed: {//计算属性放到这
             ...mapGetters({
-                db:'getDbObject'
             }),
         },
         mounted() {//页面加载完成后执行这里面的代码
             //打开IndexedDb数据库 参数：{name:打开的仓库,keyPath:指定仓库的索引名称}
-            this.$store.dispatch("openDb",{name:"students",keyPath:'id'});
+            dbTools.openDb({name:this.storeName,keyPath:'userId'});
             //因为打开数据库是异步操作，所以设置一个间隔再插入数据
             setTimeout(()=>{
-                //插入数据 参数：{store:插入数据到哪个仓库，dataObject:要插入的数据，数组形式（其中每个数据都需要包含索引）}
-                this.$store.dispatch("IndexedDbAddData",{store:'students',dataObject:[
-                    {
-                        id:1001,
-                        name:"Byron",
-                        age:24
-                    },{
-                        id:1002,
-                        name:"Frank",
-                        age:30
-                    },{
-                        id:1003,
-                        name:"Aaron",
-                        age:26
-                    }]})
-            },1000)
 
 
+            },500)
+
+
+        },
+        destroyed :()=> {
+            dbTools.closeDB()
         },
         components: {//引入自定义组件，请把引入组件放到这，然后再template中引入
 
         },
         watch: {//监测数据变动，触发某个方法
-
         }
     }
 </script>
 
 <style >
+
 
     html,body,div,span,applet,object,iframe,h1,h2,h3,h4,h5,h6,p,blockquote,pre,a,abbr,acronym,address,big,cite,code,del,dfn,em,img,ins,kbd,q,s,samp,small,strike,strong,sub,sup,tt,var,b,u,i,center,dl,dt,dd,ol,ul,li,fieldset,form,label,legend,table,caption,tbody,tfoot,thead,tr,th,td,article,aside,canvas,details,embed,figure,figcaption,footer,header,hgroup,menu,nav,output,ruby,section,summary,time,mark,audio,video{margin:0;padding:0;border:0;font-size:100%;font:inherit;vertical-align:baseline}article,aside,details,figcaption,figure,footer,header,hgroup,menu,nav,section{display:block}body{line-height:1}ol,ul{list-style:none}blockquote,q{quotes:none}blockquote:before,blockquote:after,q:before,q:after{content:'';content:none}table{border-collapse:collapse;border-spacing:0}
     html, body {
@@ -130,7 +168,7 @@
         right: 0;
         bottom: 0;
         margin: auto;
-        height: 350px;
+        height: 390px;
         width: 450px;
         color: #FFF;
         -webkit-animation: 1.5s window ease-in-out backwards;

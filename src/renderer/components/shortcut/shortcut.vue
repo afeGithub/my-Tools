@@ -1,6 +1,6 @@
 <template>
     <div id="shortcut">
-        <shortcut-item class="item" v-for="item in items" :id="item.id" @mouseover="mouseover"> </shortcut-item>
+        <shortcut-item class="item" v-for="item in items" :id="item.id" @mouseover="mouseover" :key="item"> </shortcut-item>
     </div>
 </template>
 

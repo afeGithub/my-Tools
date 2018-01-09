@@ -11,11 +11,11 @@
             <div class="weekItem"><span style="color: red">六</span></div>
         </div>
         <div id="calendar">
-            <dateItem class="dateItem" v-for="item in row1" :data="item"></dateItem>
-            <dateItem class="dateItem" v-for="item in row2" :data="item"></dateItem>
-            <dateItem class="dateItem" v-for="item in row3" :data="item"></dateItem>
-            <dateItem class="dateItem" v-for="item in row4" :data="item"></dateItem>
-            <dateItem class="dateItem" v-for="item in row5" :data="item"></dateItem>
+            <dateItem class="dateItem" v-for="item in row1" :data="item" :key="row1" ></dateItem>
+            <dateItem class="dateItem" v-for="item in row2" :data="item" :key="row2"></dateItem>
+            <dateItem class="dateItem" v-for="item in row3" :data="item" :key="row3"></dateItem>
+            <dateItem class="dateItem" v-for="item in row4" :data="item" :key="row4"></dateItem>
+            <dateItem class="dateItem" v-for="item in row5" :data="item" :key="row5"></dateItem>
         </div>
     </div>
 
