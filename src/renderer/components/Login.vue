@@ -52,7 +52,6 @@
 <script>
     import { mapGetters } from 'vuex'
     import dbTools from '../api/indexedDbTools'
-    import {stateMixin as user} from "vue";
     export default {
         props: [],//这个中保存父组件传递过来的数据
         data() {//保存该模板下的所有数据
@@ -67,7 +66,6 @@
                 img:''
             }
         },
-
         methods: {//这个模板中的所有方法都写到这
             login: function () {
                 //检测到未输入账号
@@ -84,7 +82,24 @@
                 }
                 //登录状态改为正在登录
                 this.logining = true;
-                //读取用户信息 没有的话就保存用户信息
+                //发送登录请求
+                this.$store.dispatch('loginAction', {userId: this.userId, password: this.password})
+                    .then(response =>{
+                        this.logining = false;
+                        if(response.state ==='ok'){
+                            this.flip = true;
+                            //读取用户信息 没有的话就保存用户信息
+                            this.updateData();
+                            setTimeout(()=>{
+                                this.$router.push("/homePage/shortcut")
+                            },1000)
+                        }
+                    }).catch(response =>{
+                        this.logining = false;
+                        if(response.state ==='error')this.$message.error(response.msg);
+                    })
+            },
+            updateData(){
                 dbTools.openNewDb('User').then(db => {
                     dbTools.getDataByKey(db, 'userInfo', this.userId).then(user => {
                         if (!user) {
@@ -118,30 +133,14 @@
                         }
                     });
                 });
-//                //发送登录请求
-                this.$store.dispatch('login', {userId: this.userId, password: this.password})
-                    .then(this.loginBack)
             },
             loginBack(response){
-                this.logining = false;
-                if(response.state ==='error'){
-                    this.$message.error(response.msg);
-                }else{
-                    this.flip = true;
-//                    setTimeout(()=>{
-//                        this.$router.push("/homePage/shortcut")
-//                    },1000)
-                }
-            },
-            addUsersToSelect(e){
-                let users = e.target.result;
 
             },
             handleCommand(command){
                 this.userId = command.userId;
                 this.password = command.password
             }
-
         },
         computed: {//计算属性放到这
             ...mapGetters({
